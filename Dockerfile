@@ -193,6 +193,7 @@ ARG CUR_TIME=cacheable
 RUN echo $CUR_TIME
 
 RUN bash /tmp/install.sh 2.10.0 0.25.0 2.10.0 0.18.1 0.10.1 0.7.1 2.8.3 && \
+    apt-get install zstd && \
     curl -fsSL https://ollama.com/install.sh | sh && \
     pip install --no-cache-dir -U funasr scikit-learn && \
     pip install --no-cache-dir -U qwen_vl_utils qwen_omni_utils librosa timm transformers accelerate peft trl safetensors && \
@@ -203,7 +204,7 @@ RUN bash /tmp/install.sh 2.10.0 0.25.0 2.10.0 0.18.1 0.10.1 0.7.1 2.8.3 && \
     cd /tmp && GIT_LFS_SKIP_SMUDGE=1 git clone -b  master  --single-branch https://github.com/modelscope/modelscope.git && \
     cd modelscope && pip install . -f https://modelscope.oss-cn-beijing.aliyuncs.com/releases/repo.html && \
     cd / && rm -fr /tmp/modelscope && pip cache purge; \
-    pip install --no-cache-dir torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0  && \
+    pip install --no-cache-dir torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 --index-url https://download.pytorch.org/whl/cu130 && \
     pip install --no-cache-dir transformers diffusers timm>=0.9.0 && pip cache purge; \
     pip install --no-cache-dir omegaconf==2.3.0 && pip cache purge; \
     pip config set global.index-url https://mirrors.aliyun.com/pypi/simple && \
@@ -239,7 +240,7 @@ RUN rm -f /etc/apt/sources.list.d/cuda-*.list && apt-get update
 RUN pip install transformers==5.3.0
 RUN pip install qwen_vl_utils
 RUN pip install ninja
-RUN pip install flash-attn --no-build-isolation
+RUN pip install https://github.com/alkemiik-coder/FlashAttention-2.8.3-Custom-Linux-Wheels/releases/download/FA.2.8.3-custom-linux-wheels-x86_64/flash_attn-2.8.3+cu130torch2.10cxx11abiTRUEfullsm80sm90sm100sm120nvcc130-cp310-cp310-linux_x86_64.whl
 RUN pip install "git+https://github.com/NVIDIA/TransformerEngine.git@v2.12" --no-build-isolation --force-reinstall --no-deps
 
 ENV VLLM_USE_MODELSCOPE=True
