@@ -35,4 +35,4 @@ jobs:
           context: .
           push: true
           # 替换 "your-image-name" 为你实际的镜像名称
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/swift:4.0.3-vllm0.18.1
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/swift4.0.3-vllm0.19.0-no-apex
