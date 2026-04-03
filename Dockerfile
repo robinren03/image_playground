@@ -42,107 +42,113 @@ RUN wget -O /tmp/boost.tar.gz https://archives.boost.io/release/1.80.0/source/bo
     rm -rf /tmp/boost_1_80_0 && rm -rf boost.tar.gz
 
 #install and config python copy from https://github.com/docker-library/python/blob/1b7a1106674a21e699b155cbd53bf39387284cca/3.10/bookworm/Dockerfile
-ARG PYTHON_VERSION=3.10.14
-ENV PATH /usr/local/bin:$PATH
-ENV GPG_KEY A035C8C19219BA821ECEA86B64E628F8D684696D
-ENV PYTHON_VERSION 3.10.14
+RUN set -eux; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+		libbluetooth-dev \
+		tk-dev \
+		uuid-dev \
+	; \
+	rm -rf /var/lib/apt/lists/*
 
+ENV GPG_KEY 7169605F62C751356D054A26A821E680E5FA6305
+ENV PYTHON_VERSION 3.12.2
 
 RUN set -eux; \
-        \
-        wget -O python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz"; \
-        wget -O python.tar.xz.asc "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz.asc"; \
-        GNUPGHOME="$(mktemp -d)"; export GNUPGHOME; \
-        gpg --batch --keyserver hkp://keyserver.ubuntu.com --recv-keys "$GPG_KEY"; \
-        gpg --batch --verify python.tar.xz.asc python.tar.xz; \
-        gpgconf --kill all; \
-        rm -rf "$GNUPGHOME" python.tar.xz.asc; \
-        mkdir -p /usr/src/python; \
-        tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz; \
-        rm python.tar.xz; \
-        \
-        cd /usr/src/python; \
-        gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"; \
-        ./configure \
-                --build="$gnuArch" \
-                --enable-loadable-sqlite-extensions \
-                --enable-optimizations \
-                --enable-option-checking=fatal \
-                --enable-shared \
-                --with-lto \
-                --with-system-expat \
-                --without-ensurepip \
-        ; \
-        nproc="$(nproc)"; \
-        EXTRA_CFLAGS="$(dpkg-buildflags --get CFLAGS)"; \
-        LDFLAGS="$(dpkg-buildflags --get LDFLAGS)"; \
-        make -j "$nproc" \
-                "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
-                "LDFLAGS=${LDFLAGS:-}" \
-                "PROFILE_TASK=${PROFILE_TASK:-}" \
-        ; \
-        rm python; \
-        make -j "$nproc" \
-                "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
-                "LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" \
-                "PROFILE_TASK=${PROFILE_TASK:-}" \
-                python \
-        ; \
-        make install; \
-        \
-        bin="$(readlink -ve /usr/local/bin/python3)"; \
-        dir="$(dirname "$bin")"; \
-        mkdir -p "/usr/share/gdb/auto-load/$dir"; \
-        cp -vL Tools/gdb/libpython.py "/usr/share/gdb/auto-load/$bin-gdb.py"; \
-        \
-        cd /; \
-        rm -rf /usr/src/python; \
-        \
-        find /usr/local -depth \
-                \( \
-                        \( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
-                        -o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \) \) \
-                \) -exec rm -rf '{}' + \
-        ; \
-        \
-        ldconfig; \
-        \
-        python3 --version
+	\
+	wget -O python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz"; \
+	wget -O python.tar.xz.asc "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz.asc"; \
+	GNUPGHOME="$(mktemp -d)"; export GNUPGHOME; \
+	gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$GPG_KEY"; \
+	gpg --batch --verify python.tar.xz.asc python.tar.xz; \
+	gpgconf --kill all; \
+	rm -rf "$GNUPGHOME" python.tar.xz.asc; \
+	mkdir -p /usr/src/python; \
+	tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz; \
+	rm python.tar.xz; \
+	\
+	cd /usr/src/python; \
+	gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"; \
+	./configure \
+		--build="$gnuArch" \
+		--enable-loadable-sqlite-extensions \
+		--enable-optimizations \
+		--enable-option-checking=fatal \
+		--enable-shared \
+		--with-lto \
+		--with-system-expat \
+		--without-ensurepip \
+	; \
+	nproc="$(nproc)"; \
+	EXTRA_CFLAGS="$(dpkg-buildflags --get CFLAGS)"; \
+	LDFLAGS="$(dpkg-buildflags --get LDFLAGS)"; \
+	make -j "$nproc" \
+		"EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
+		"LDFLAGS=${LDFLAGS:-}" \
+		"PROFILE_TASK=${PROFILE_TASK:-}" \
+	; \
+# https://github.com/docker-library/python/issues/784
+# prevent accidental usage of a system installed libpython of the same version
+	rm python; \
+	make -j "$nproc" \
+		"EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
+		"LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" \
+		"PROFILE_TASK=${PROFILE_TASK:-}" \
+		python \
+	; \
+	make install; \
+	\
+# enable GDB to load debugging data: https://github.com/docker-library/python/pull/701
+	bin="$(readlink -ve /usr/local/bin/python3)"; \
+	dir="$(dirname "$bin")"; \
+	mkdir -p "/usr/share/gdb/auto-load/$dir"; \
+	cp -vL Tools/gdb/libpython.py "/usr/share/gdb/auto-load/$bin-gdb.py"; \
+	\
+	cd /; \
+	rm -rf /usr/src/python; \
+	\
+	find /usr/local -depth \
+		\( \
+			\( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
+			-o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \) \) \
+		\) -exec rm -rf '{}' + \
+	; \
+	\
+	ldconfig; \
+	\
+	python3 --version
 
 # make some useful symlinks that are expected to exist ("/usr/local/bin/python" and friends)
 RUN set -eux; \
-        for src in idle3 pydoc3 python3 python3-config; do \
-                dst="$(echo "$src" | tr -d 3)"; \
-                [ -s "/usr/local/bin/$src" ]; \
-                [ ! -e "/usr/local/bin/$dst" ]; \
-                ln -svT "$src" "/usr/local/bin/$dst"; \
-        done
+	for src in idle3 pydoc3 python3 python3-config; do \
+		dst="$(echo "$src" | tr -d 3)"; \
+		[ -s "/usr/local/bin/$src" ]; \
+		[ ! -e "/usr/local/bin/$dst" ]; \
+		ln -svT "$src" "/usr/local/bin/$dst"; \
+	done
 
 # if this is called "PIP_VERSION", pip explodes with "ValueError: invalid truth value '<VERSION>'"
-ENV PYTHON_PIP_VERSION=23.0.1
-# How about updating setuptools, wheel, pip and installing setuptools-scm from git? · Issue #365 · doc
-ENV PYTHON_SETUPTOOLS_VERSION=65.5.1
+ENV PYTHON_PIP_VERSION 24.0
 # https://github.com/pypa/get-pip
-ENV PYTHON_GET_PIP_URL=https://github.com/pypa/get-pip/raw/dbf0c85f76fb6e1ab42aa672ffca6f0a675d9ee4/public/get-pip.py
-ENV PYTHON_GET_PIP_SHA256=dfe9fd5c28dc98b5ac17979a953ea550cec37ae1b47a5116007395bfacff2ab9
+ENV PYTHON_GET_PIP_URL https://github.com/pypa/get-pip/raw/dbf0c85f76fb6e1ab42aa672ffca6f0a675d9ee4/public/get-pip.py
+ENV PYTHON_GET_PIP_SHA256 dfe9fd5c28dc98b5ac17979a953ea550cec37ae1b47a5116007395bfacff2ab9
 
 RUN set -eux; \
-        \
-        wget -O get-pip.py "$PYTHON_GET_PIP_URL"; \
-        echo "$PYTHON_GET_PIP_SHA256 *get-pip.py" | sha256sum -c -; \
-        \
-        export PYTHONDONTWRITEBYTECODE=1; \
-        \
-        python get-pip.py \
-                --disable-pip-version-check \
-                --no-cache-dir \
-                --no-compile \
-                "pip==$PYTHON_PIP_VERSION" \
-                "setuptools==$PYTHON_SETUPTOOLS_VERSION" \
-        ; \
-        rm -f get-pip.py; \
-        \
-        pip --version
+	\
+	wget -O get-pip.py "$PYTHON_GET_PIP_URL"; \
+	echo "$PYTHON_GET_PIP_SHA256 *get-pip.py" | sha256sum -c -; \
+	\
+	export PYTHONDONTWRITEBYTECODE=1; \
+	\
+	python get-pip.py \
+		--disable-pip-version-check \
+		--no-cache-dir \
+		--no-compile \
+		"pip==$PYTHON_PIP_VERSION" \
+	; \
+	rm -f get-pip.py; \
+	\
+	pip --version
 # end of install python
 
 RUN pip install --no-cache-dir -U icecream soundfile pybind11 py-spy
@@ -192,15 +198,13 @@ fi
 ARG CUR_TIME=cacheable
 RUN echo $CUR_TIME
 
-RUN bash /tmp/install.sh 2.10.0 0.25.0 2.10.0 0.18.1 0.10.1 0.7.1 2.8.3 && \
+RUN bash /tmp/install.sh 2.10.0 0.25.0 2.10.0 0.19.0 0.10.1 0.7.1 2.8.3 && \
     apt-get install zstd && \
     curl -fsSL https://ollama.com/install.sh | sh && \
     pip install --no-cache-dir -U funasr scikit-learn && \
     pip install --no-cache-dir -U qwen_vl_utils qwen_omni_utils librosa timm transformers accelerate peft trl safetensors && \
-    cd /tmp && GIT_LFS_SKIP_SMUDGE=1 git clone -b main  --single-branch https://github.com/modelscope/ms-swift.git && \
-    cd ms-swift && git checkout v4.0.3 && pip install .[llm] && \
-    pip install .[eval] && pip install evalscope -U --no-dependencies && pip install ms-agent -U --no-dependencies && \
-    cd / && rm -fr /tmp/ms-swift && pip cache purge; \
+    pip install ms-swift==4.0.3 && pip install evalscope -U --no-dependencies && pip install ms-agent -U --no-dependencies && \
+    && pip cache purge; \
     cd /tmp && GIT_LFS_SKIP_SMUDGE=1 git clone -b  master  --single-branch https://github.com/modelscope/modelscope.git && \
     cd modelscope && pip install . -f https://modelscope.oss-cn-beijing.aliyuncs.com/releases/repo.html && \
     cd / && rm -fr /tmp/modelscope && pip cache purge; \
@@ -240,7 +244,7 @@ RUN rm -f /etc/apt/sources.list.d/cuda-*.list && apt-get update
 RUN pip install transformers==5.3.0
 RUN pip install qwen_vl_utils
 RUN pip install ninja
-RUN pip install https://github.com/alkemiik-coder/FlashAttention-2.8.3-Custom-Linux-Wheels/releases/download/FA.2.8.3-custom-linux-wheels-x86_64/flash_attn-2.8.3+cu130torch2.10cxx11abiTRUEfullsm80sm90sm100sm120nvcc130-cp310-cp310-linux_x86_64.whl
+RUN pip install https://github.com/alkemiik-coder/FlashAttention-2.8.3-Custom-Linux-Wheels/releases/download/FA.2.8.3-custom-linux-wheels-x86_64/flash_attn-2.8.3+cu130torch2.10cxx11abiTRUEfullsm80sm90sm100sm120nvcc130-cp312-cp312-linux_x86_64.whl
 RUN pip install "git+https://github.com/NVIDIA/TransformerEngine.git@v2.12" --no-build-isolation --force-reinstall --no-deps
 
 ENV VLLM_USE_MODELSCOPE=True
