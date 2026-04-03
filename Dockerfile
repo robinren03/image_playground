@@ -120,11 +120,15 @@ COPY requirements /var/modelscope
 
 # ===== Python packages =====
 
-# 1. vllm first — pulls in torch, triton, and many shared dependencies
-RUN pip install --no-cache-dir vllm==0.19.0
+# 0. SGLang (no-deps to avoid pulling unwanted transitive dependencies)
+RUN pip install --no-cache-dir --no-dependencies "sglang[all]==0.5.7" sgl-kernel==0.3.21
 
-# 2. Pin torch/torchvision/torchaudio to cu130 (override whatever vllm pulled)
+# 1. Pin torch/torchvision/torchaudio to cu130 (override whatever vllm pulled)
 RUN pip install --no-cache-dir torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0
+
+# 2. vllm first — pulls in torch, triton, and many shared dependencies
+RUN pip install --no-cache-dir \
+    https://github.com/vllm-project/vllm/releases/download/v0.19.0/vllm-0.19.0+cu130-cp38-abi3-manylinux_2_35_x86_64.whl
 
 # 3. Flash Attention (prebuilt cu130 wheel for torch 2.10 + cp312)
 RUN pip install --no-cache-dir \
@@ -134,12 +138,12 @@ RUN pip install --no-cache-dir \
 RUN pip install --no-cache-dir \
     https://github.com/NVIDIA/TransformerEngine/releases/download/v2.12/transformer_engine_torch-2.12.0+cu13torch26.01cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
 
-# 5. NVIDIA Apex (temporarily disabled)
-# RUN cd /tmp && GIT_LFS_SKIP_SMUDGE=1 git clone https://github.com/NVIDIA/apex && \
-#     cd apex && git checkout e13873debc4699d39c6861074b9a3b2a02327f92 && \
-#     pip install -v --disable-pip-version-check --no-cache-dir --no-build-isolation \
-#         --config-settings "--build-option=--cpp_ext" --config-settings "--build-option=--cuda_ext" ./ && \
-#     cd / && rm -fr /tmp/apex
+# 5. NVIDIA Apex
+RUN cd /tmp && GIT_LFS_SKIP_SMUDGE=1 git clone https://github.com/NVIDIA/apex && \
+    cd apex && \
+    pip install -v --disable-pip-version-check --no-cache-dir --no-build-isolation \
+        --config-settings "--build-option=--cpp_ext" --config-settings "--build-option=--cuda_ext" ./ && \
+    cd / && rm -fr /tmp/apex
 
 # 6. Megatron-LM
 RUN pip install --no-cache-dir "git+https://github.com/NVIDIA/Megatron-LM.git@core_r0.16.0"
