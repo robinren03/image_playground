@@ -238,7 +238,7 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | b
 RUN rm -f /etc/apt/sources.list.d/cuda-*.list && apt-get update
 RUN pip install transformers==5.3.0
 RUN pip install qwen_vl_utils
-RUN pip install ninja`
+RUN pip install ninja
 RUN pip install flash-attn --no-build-isolation
 RUN pip install "git+https://github.com/NVIDIA/TransformerEngine.git@v2.12" --no-build-isolation --force-reinstall --no-deps
 
