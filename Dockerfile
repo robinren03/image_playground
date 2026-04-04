@@ -152,7 +152,7 @@ RUN pip install --no-cache-dir "git+https://github.com/NVIDIA/Megatron-LM.git@co
 RUN pip install --no-cache-dir \
     transformers==5.3.0 "trl<0.21" accelerate peft safetensors diffusers \
     huggingface-hub timm liger_kernel \
-    lmdeploy==0.10.1 autoawq "auto-gptq>=0.7.1,<0.7.2" \
+    # lmdeploy==0.10.1 autoawq "auto-gptq>=0.7.1,<0.7.2" \
     tiktoken transformers_stream_generator bitsandbytes deepspeed \
     torchmetrics decord optimum openai-whisper \
     wandb swanlab nvitop pre-commit \
